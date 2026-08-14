@@ -67,6 +67,8 @@
 *   修复暗色模式下删除用户确认弹窗的显示异常问题
 * *[v0.3.5] JiangFan 2026-07-14
 *   修复bug:右键弹出删除用户选项后，鼠标悬停于此，选项变色，但移除鼠标，颜色未复原
+* *[v0.3.6] JiangFan 2026-08-12
+*   在界面左下角添加more按钮。
 */
 
 import QtQuick
@@ -103,6 +105,12 @@ Rectangle {
 
     //InviteUserInterface提交创建请求后，PeerPanel转发给AppController
     signal groupCreationRequested(string groupName, var members)
+
+    //修改普通文件默认保存路径
+    signal settingRequested()
+
+    //请求打开App信息页
+    signal informationRequested()
 
     //增加外部模型属性
     property var peerModel: []
@@ -243,7 +251,7 @@ Rectangle {
                         }
                     }
 
-                    //创建群聊/添加好友等功能的菜单
+                    //创建群聊功能的菜单
                     Menu{
                         id: featureSet
                         width: 100
@@ -275,6 +283,8 @@ Rectangle {
                             }
 
                         }
+                        //暂时不需要这个（未实现），先注释
+                        /*
                         MenuItem{
                             id: addFriendMenuItem
                             text: qsTr("加好友")
@@ -287,6 +297,7 @@ Rectangle {
                                 elide: Text.ElideRight
                             }
                         }
+                        */
                     }
                 }
 
@@ -644,6 +655,114 @@ Rectangle {
 
                 onTapped: {
                     peerPanel.clearSearchFocus()
+                }
+            }
+        }
+
+        //左边栏左下角的更多按钮区域
+        Rectangle {
+            id: moreArea
+
+            Layout.fillWidth: true
+            Layout.preferredHeight: 50
+
+            color: "white"
+
+            //more按钮
+            Rectangle {
+                id: moreButton
+
+                width: 30
+                height: 30
+
+                anchors.left: parent.left
+                anchors.leftMargin: 10
+                anchors.verticalCenter: parent.verticalCenter
+
+                radius: 10
+
+                //鼠标悬停 --> 显示浅灰色
+                color: moreHover.hovered ? "#D8D8D8" : "transparent"
+
+                Image {
+                    anchors.centerIn: parent
+                    width: 20
+                    height: 20
+
+                    source: "source/more.svg"
+                }
+
+                HoverHandler {
+                    id: moreHover
+
+                    cursorShape: Qt.PointingHandCursor
+                }
+
+                TapHandler {
+                    acceptedButtons: Qt.LeftButton
+                    gesturePolicy: TapHandler.ReleaseWithinBounds
+
+                    //点击之后会弹出菜单（目前是 setting/information）
+                    onTapped: {
+                        peerPanel.clearSearchFocus() //添加焦点消除
+
+                        moreMenu.popup(moreButton,
+                                       moreButton.width + 5,
+                                       moreButton.height - moreMenu.implicitHeight)
+
+                        //console.log("点击more")
+                    }
+                }
+
+                //more的菜单
+                Menu {
+                    id: moreMenu
+                    width: 150
+
+                    background: Rectangle {
+                        implicitWidth: 150
+                        color: "#FFFFFF"
+                        radius: 10
+                        border.color: "#D9D9D9"
+                        border.width: 1
+                    }
+
+                    //设置
+                    MenuItem {
+                        id: settingMenuItem
+
+                        implicitHeight: 40
+
+                        background: Rectangle {
+                            color: settingMenuItem.highlighted
+                                   ? "#EEEEEE" : "transparent"
+                            radius: 5
+                        }
+
+                        contentItem: RowLayout {
+                            spacing: 10
+
+                            Image {
+                                Layout.preferredHeight: 20
+                                Layout.preferredWidth: 20
+
+                                source: "source/setting.svg"
+                                fillMode: Image.PreserveAspectFit
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: qsTr("设置")
+                                color: "#333333"
+                                font.pixelSize: 15
+
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
+                        onTriggered: {
+                            peerPanel.settingRequested()
+                        }
+                    }
                 }
             }
         }

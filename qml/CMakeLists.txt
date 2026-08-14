@@ -39,15 +39,23 @@ qt_add_qml_module(appMessager
         InviteUserInterface.qml
         Login.qml
         GroupMemberListView.qml
+        SettingDialog.qml
 
     RESOURCES
         ../source/messager.png
+
         ../source/file.svg
         ../source/close.svg
         ../source/smaller.svg
         ../source/bigger.svg
         ../source/bigger2.svg
         ../source/transfer_failed.svg
+        ../source/more.svg
+        ../source/setting.svg
+        ../source/information.svg
+        ../source/saveManager.svg
+
+        ../source/jiangFan.jpg
 )
 target_compile_features(appMessager PRIVATE cxx_std_23)
 

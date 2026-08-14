@@ -123,6 +123,9 @@ ApplicationWindow {
     //当前会话标题，私聊显示用户名，群聊显示群名
     readonly property string currentConversationName: currentIsGroup ? currentGroupName : currentPeerName
 
+    //普通文件默认保存路径
+    readonly property string defaultDownloadPath: appController.defaultDownloadPath
+
     //当前待处理的文件接收请求
     property string pendingFileIp: ""
     property string pendingFileName: ""
@@ -245,6 +248,18 @@ ApplicationWindow {
             console.log("操作失败: ", message)
             root.fileTransferStatusText = message
         }
+    }
+
+    //设置窗口
+    SettingDialog {
+        id: settingsDialog
+
+        parent: Overlay.overlay
+
+        appController: appController
+
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
     }
 
     //判断文件大小，用于转换B/KB/MB/GB
@@ -791,6 +806,11 @@ ApplicationWindow {
                     groupModel: appController.groups
                     peerModel: appController.peers
 
+                    //打开普通文件默认保存路径选择窗口
+                    onSettingRequested: {
+                        settingsDialog.open(0) // 0 --> 默认停在第一项
+                    }
+
                     //接收创建群聊窗口提交的群名称和成员列表
                     onGroupCreationRequested: function(groupName, members)
                     {
@@ -1112,61 +1132,19 @@ ApplicationWindow {
         }
     }
 
-    /*
-    //遗留产物：接收文件时选择保存路径
-    FileDialog {
-        id: saveFileDialog
+    //设置普通文件默认保存路径的窗口
+    FolderDialog {
+        id: defaultDownloadFolderDialog
 
-        title: qsTr("选择文件保存位置")
-        fileMode: FileDialog.SaveFile
-
-        //默认打开 /root 目录，并预填收到的文件名。
-        //SaveFile需要“完整文件路径”
-        currentFolder: "file:///root"
-
-        nameFilters: [qsTr("所有文件 (*)")]
-        acceptLabel: qsTr("保存")
+        title: qsTr("选择默认文件保存位置")
+        acceptLabel: qsTr("选择")
 
         onAccepted: {
-            var saveUrl = selectedFile
+               appController.setDefaultDownloadPath(selectedFolder)
+           }
 
-            if (saveUrl.toString().length === 0) {
-                console.log("保存路径为空")
-                root.fileTransferStatusText = qsTr("保存路径为空")
-                return
-            }
 
-            if (saveUrl.toString().endsWith("/")) {
-                console.log("请选择具体文件名，不能只选择文件夹")
-                root.fileTransferStatusText = qsTr("请选择具体文件名，不能只选择文件夹")
-                return
-            }
-
-            root.fileTransferName = root.pendingFileName
-            root.fileTransferFromMe = false
-            root.fileTransferPercent = 0
-            root.fileTransferVisible = true
-
-            root.fileTransferSpeedKBps = 0
-            root.fileTransferRemainingSeconds = -1
-
-            //重新接收同名文件时，清除旧失败标识。
-            if (root.fileTransferFailedName === root.pendingFileName
-                    && root.fileTransferFailedFromMe === false) {
-                root.fileTransferFailed = false
-                root.fileTransferFailedName = ""
-            }
-
-            appController.acceptFile(root.pendingFileIp, saveUrl)
-
-            receiveFilePanel.visible = false
-            root.fileTransferStatusText = qsTr("对方已接受文件，等待传输")
-
-            console.log("接受文件:", root.pendingFileName, "保存到:", saveUrl)
-        }
     }
-
-    */
 
     //文件接受提示面板
     Rectangle {
