@@ -662,6 +662,15 @@ ApplicationWindow {
                         Layout.topMargin: 5
                     }
 
+                    ToolButton {
+                        icon.source: "source/setting.svg"
+                        icon.width: 25; icon.height: 25
+
+                        TapHandler{
+
+                        }
+                    }
+
                     //标题栏空白拖拽区域
                     Rectangle {
                         id: titleDragArea
