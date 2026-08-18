@@ -51,7 +51,7 @@ qt_add_qml_module(appMessager
         ../source/bigger2.svg
         ../source/transfer_failed.svg
         ../source/more.svg
-        ../source/setting.svg
+        ../source/setting.png
         ../source/information.svg
         ../source/saveManager.svg
         ../source/jiangFan.jpg

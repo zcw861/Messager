@@ -746,7 +746,7 @@ Rectangle {
                                 Layout.preferredHeight: 20
                                 Layout.preferredWidth: 20
 
-                                source: "source/setting.svg"
+                                source: "source/setting.png"
                                 fillMode: Image.PreserveAspectFit
                             }
 

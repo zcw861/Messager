@@ -72,6 +72,8 @@
 //     [v0.3.5] JiangFan    2026-07-14
 //         * 增加文件传输进度条显示速度和预计剩余时间的内容
 //         * 重构文件接受弹窗的整体布局
+//     [v0.3.6] JiangFan    2026-08-18
+//         * 解决了设置图标不显示的问题
 
 import QtQuick
 import QtQuick.Controls
@@ -660,15 +662,6 @@ ApplicationWindow {
                         font.pixelSize: 15
                         Layout.leftMargin: 10
                         Layout.topMargin: 5
-                    }
-
-                    ToolButton {
-                        icon.source: "source/setting.svg"
-                        icon.width: 25; icon.height: 25
-
-                        TapHandler{
-
-                        }
                     }
 
                     //标题栏空白拖拽区域

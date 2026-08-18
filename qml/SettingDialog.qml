@@ -14,6 +14,8 @@
 * * Initial creation
 * [v0.2.0]  JiangFan  2026-08-14
 * * 框架已经完成，内容已经填写大半。
+* [v0.2.1]  zhouChengWei  2026-08-18
+* * 修改了悬停时间。
 */
 
 import QtQuick
@@ -173,8 +175,7 @@ Dialog {
 
                             height: 1
                             Layout.topMargin: 1
-                            anchors.left: parent.left
-                            anchors.right: parent.right
+                            Layout.fillWidth: true
                         }
 
                         //默认文件保存路径
@@ -479,14 +480,14 @@ Dialog {
 
                                             onHoveredChanged: {
                                                 if (hovered) {
-                                                    //鼠标进入姓名后开始3秒计时
+                                                    //鼠标进入姓名后开始0.5秒计时
                                                     developerCardShowTimer.restart()
 
                                                     //如果正在等待关闭，则取消关闭
                                                     developerCardCloseTimer.stop()
                                                 }
                                                 else {
-                                                    //还没到3秒就离开，则不会显示名片
+                                                    //还没到0.5秒就离开，则不会显示名片
                                                     developerCardShowTimer.stop()
 
                                                     //给鼠标留一点时间从姓名移动到名片
@@ -624,11 +625,11 @@ Dialog {
         }
     }
 
-    //开发者姓名悬停3秒后显示人物名片
+    //开发者姓名悬停0.5秒后显示人物名片
     Timer {
         id: developerCardShowTimer
 
-        interval: 3000
+        interval: 500
         repeat: false
 
         onTriggered: {
