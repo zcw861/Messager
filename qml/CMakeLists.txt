@@ -54,7 +54,10 @@ qt_add_qml_module(appMessager
         ../source/setting.png
         ../source/information.svg
         ../source/saveManager.svg
+
         ../source/jiangFan.jpg
+        ../source/zhouChengWei.jpg
+        ../source/heZhiYuan.jpg
 )
 target_compile_features(appMessager PRIVATE cxx_std_23)
 

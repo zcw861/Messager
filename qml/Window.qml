@@ -811,6 +811,7 @@ ApplicationWindow {
                     //打开普通文件默认保存路径选择窗口
                     onSettingRequested: {
                         settingsDialog.open(0) // 0 --> 默认停在第一项
+                        settingsDialog.forceActiveFocus()
                     }
 
                     //接收创建群聊窗口提交的群名称和成员列表
