@@ -20,6 +20,8 @@
 * * 完善三个开发者名片
 * * 增加项目仓库的超链接
 * * 增加上方标题栏（关闭按钮 + 拖拽）注意：如果要加最小化、最大化，建议Dialog换成Window
+* [v0.2.3]  zhouChengWei  2026-08-22
+* * 修改了项目链接的悬停样式。
 */
 
 import QtQuick
@@ -512,15 +514,19 @@ Dialog {
                             Text {
                                 textFormat: Text.RichText
 
-                                text:
-                                    qsTr(
-                                        "项目地址：<a href='https://github.com/zcw861/Messeager'>https://github.com/zcw861/Messager</a>"
+                                text:qsTr(
+                                    "项目地址：<a href='https://github.com/zcw861/
+                                    Messeager'>https://github.com/zcw861/Messager</a>"
                                     )
 
                                 font.pixelSize: 15
                                 color: "#666666"
                                 onLinkActivated: function(link) {
                                     Qt.openUrlExternally(link)
+                                }
+
+                                HoverHandler{
+                                    cursorShape: Qt.PointingHandCursor
                                 }
                             }
 
