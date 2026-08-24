@@ -20,8 +20,9 @@
 * * 完善三个开发者名片
 * * 增加项目仓库的超链接
 * * 增加上方标题栏（关闭按钮 + 拖拽）注意：如果要加最小化、最大化，建议Dialog换成Window
-* *
-* [v0.2.3]  jiangFan   2026-08-21
+* [v0.2.3]  zhouChengWei  2026-08-22
+* * 修改了项目链接的悬停样式。
+* [v0.2.4]  jiangFan   2026-08-21
 * * 将设置界面由Dialog改成Window
 * * 增加了顶部栏双击最大最小化的功能
 * * 将该窗口改成独立窗口，不作为Window的子窗口，完善最小最大化、关闭功能
@@ -571,9 +572,9 @@ Window {
                             Text {
                                 textFormat: Text.RichText
 
-                                text:
-                                    qsTr(
-                                        "项目地址：<a href='https://github.com/zcw861/Messeager'>https://github.com/zcw861/Messager</a>"
+                                text:qsTr(
+                                    "项目地址：<a href='https://github.com/zcw861/
+                                    Messeager'>https://github.com/zcw861/Messager</a>"
                                     )
 
                                 font.pixelSize: 15
@@ -582,7 +583,7 @@ Window {
                                     Qt.openUrlExternally(link)
                                 }
 
-                                HoverHandler {
+                                HoverHandler{
                                     cursorShape: Qt.PointingHandCursor
                                 }
                             }
@@ -1017,3 +1018,4 @@ Window {
         }
     }
 }
+
