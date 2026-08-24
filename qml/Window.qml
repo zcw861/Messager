@@ -74,6 +74,9 @@
 //         * 重构文件接受弹窗的整体布局
 //     [v0.3.6] JiangFan    2026-08-18
 //         * 解决了设置图标不显示的问题
+//     [v0.3.7] JiangFan    2026-08-24
+//         * 增加了顶部栏双击最大最小化的功能
+//         * 将设置界面由Dialog改成Window
 
 import QtQuick
 import QtQuick.Controls
@@ -253,15 +256,13 @@ ApplicationWindow {
     }
 
     //设置窗口
-    SettingDialog {
-        id: settingsDialog
-
-        parent: Overlay.overlay
+    SettingWindow {
+        id: settingsWindow
 
         appController: appController
 
-        x: Math.round((parent.width - width) / 2)
-        y: Math.round((parent.height - height) / 2)
+        //设置窗口作为独立顶层窗口，不与主窗口联动最小化
+        transientParent: null
     }
 
     //判断文件大小，用于转换B/KB/MB/GB
@@ -679,6 +680,15 @@ ApplicationWindow {
                                     root.startSystemMove()
                             }
                         }
+
+                        //双击标题栏空白区域，最大化/还原窗口
+                        TapHandler {
+                            acceptedButtons: Qt.LeftButton
+
+                            onDoubleTapped: {
+                                root.toggleMaxinized()
+                            }
+                        }
                     }
 
                     //功能栏（最小化，最大化，关闭）
@@ -809,9 +819,25 @@ ApplicationWindow {
                     peerModel: appController.peers
 
                     //打开普通文件默认保存路径选择窗口
+                    //打开设置窗口
                     onSettingRequested: {
-                        settingsDialog.open(0) // 0 --> 默认停在第一项
-                        settingsDialog.forceActiveFocus()
+
+                        //每次打开默认停留在第一项
+                        settingsWindow.currentSettingIndex = 0
+
+                        //设置窗口显示在主窗口中央
+                        settingsWindow.x = root.x
+                                    + Math.round(
+                                    (root.width - settingsWindow.width) / 2
+                                )
+
+                        settingsWindow.y = root.y
+                                    + Math.round(
+                                    (root.height - settingsWindow.height) / 2
+                                )
+
+                        settingsWindow.show()
+                        settingsWindow.requestActivate()
                     }
 
                     //接收创建群聊窗口提交的群名称和成员列表

@@ -39,7 +39,7 @@ qt_add_qml_module(appMessager
         InviteUserInterface.qml
         Login.qml
         GroupMemberListView.qml
-        SettingDialog.qml
+        SettingWindow.qml
 
     RESOURCES
         ../source/messager.png

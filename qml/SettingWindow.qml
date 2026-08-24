@@ -20,6 +20,12 @@
 * * 完善三个开发者名片
 * * 增加项目仓库的超链接
 * * 增加上方标题栏（关闭按钮 + 拖拽）注意：如果要加最小化、最大化，建议Dialog换成Window
+* *
+* [v0.2.3]  jiangFan   2026-08-21
+* * 将设置界面由Dialog改成Window
+* * 增加了顶部栏双击最大最小化的功能
+* * 将该窗口改成独立窗口，不作为Window的子窗口，完善最小最大化、关闭功能
+* * 增加开发者、项目地址处鼠标悬浮时的鼠标手型变化
 */
 
 import QtQuick
@@ -27,25 +33,22 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
 
-Dialog {
-    id: settingsDialog
+Window {
+    id: settingsWindow
 
     required property var appController
 
-    modal: true
-    closePolicy: Popup.NoAutoClose
-    focus: true
-
-    Overlay.modal: Rectangle {
-
-        color: "transparent"
-        TapHandler {
-        }
-    }
-
-
     width: 700
     height: 500
+
+    visible: false
+    title: qsTr("设置")
+    color: "#FFFFFF"
+
+    flags: Qt.Window | Qt.FramelessWindowHint
+
+    //设置窗口打开时，不允许操作后面的主窗口
+    modality: Qt.WindowModal
 
     //当前左侧选中的设置分类
     property int currentSettingIndex: 0
@@ -78,18 +81,17 @@ Dialog {
         }
     ]
 
-    //title: qsTr("设置")
-    header: null
-
-    background: Rectangle {
-        color: "#FFFFFF"
-        radius: 10
-
-        border.color: "#D9D9D9"
-        border.width: 1
+    //窗口最大化/还原
+    function toggleMaxinized()
+    {
+        if(settingsWindow.visibility === Window.Maximized)
+            settingsWindow.showNormal()
+        else
+            settingsWindow.showMaximized()
     }
 
-    contentItem: ColumnLayout {
+    ColumnLayout {
+        anchors.fill: parent
         spacing: 0
 
         //标题栏+内容（上下两部分）
@@ -114,55 +116,112 @@ Dialog {
                 }
 
                 //标题栏空白拖拽区域
+                //标题栏空白拖拽区域
                 Rectangle {
+                    id: titleMoveArea
 
-                    Layout.fillHeight: true
                     Layout.fillWidth: true
+                    Layout.fillHeight: true
+
                     color: "transparent"
 
                     DragHandler {
+                        id: titleDragHandler
 
-                        id:titleDragHandler
-
-                        target:null
-
+                        target: null
                         acceptedButtons: Qt.LeftButton
 
-                        cursorShape: active
-                                     ? Qt.SizeAllCursor
-                                     : Qt.ArrowCursor
-
-
-                        property real startX
-                        property real startY
-
+                        cursorShape: active ? Qt.SizeAllCursor : Qt.ArrowCursor
 
                         onActiveChanged: {
-
-                            if(active){
-
-                                settingsDialog.forceActiveFocus()
-
-                                startX = settingsDialog.x
-                                startY = settingsDialog.y
-
-                            }
+                            if(active)
+                                settingsWindow.startSystemMove()
                         }
+                    }
 
+                    //双击标题栏空白区域，最大化/还原窗口
+                    TapHandler {
+                        acceptedButtons: Qt.LeftButton
 
-                        onTranslationChanged: {
-
-                            settingsDialog.x =
-                                    startX + translation.x
-
-                            settingsDialog.y =
-                                    startY + translation.y
-
+                        onDoubleTapped: {
+                            settingsWindow.toggleMaxinized()
                         }
                     }
                 }
 
-                //功能栏（关闭）  ---- 直接套用的Window.qml那一块
+                //功能栏（最小化、最大化、关闭）  ---- 直接套用的Window.qml那一块
+                //最小化
+                Rectangle{
+                    id: smallerButton
+
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: 30
+                    Layout.rightMargin: 5
+
+                    color: smallerButtonHover.hovered ? "#F2F3F5" : "#FFFFFF"
+
+                    Image {
+                        source: "source/smaller.svg"
+
+                        width: 20
+                        height: 20
+                        anchors.centerIn: parent
+                    }
+
+                    HoverHandler {
+                        id: smallerButtonHover
+                        cursorShape: Qt.PointingHandCursor
+                    }
+
+                    TapHandler {
+                        onTapped: {
+                            settingsWindow.showMinimized()
+                        }
+                    }
+                }
+
+                //最大化
+                Rectangle{
+                    id: biggerButton
+
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: 30
+                    Layout.rightMargin: 5
+
+                    color: biggerButtonHover.hovered ? "#F2F3F5" : "#FFFFFF"
+
+                    Image {
+                        source: "source/bigger.svg"
+
+                        visible: settingsWindow.visibility !== Window.Maximized
+                        width: 20
+                        height: 20
+                        anchors.centerIn: parent
+                    }
+
+                    Image {
+                        source: "source/bigger2.svg"
+
+                        visible: settingsWindow.visibility === Window.Maximized
+                        width: 20
+                        height: 20
+                        anchors.centerIn: parent
+                    }
+
+                    HoverHandler {
+                        id: biggerButtonHover
+                        cursorShape: Qt.PointingHandCursor
+
+                    }
+
+                    TapHandler {
+                        onTapped: {
+                            settingsWindow.toggleMaxinized()
+                        }
+                    }
+                }
+
+
                 Rectangle{
                     id: closeButton
 
@@ -190,7 +249,7 @@ Dialog {
                         acceptedButtons: Qt.LeftButton
 
                         onTapped: {
-                            settingsDialog.close()
+                            settingsWindow.close()
                         }
                     }
                 }
@@ -239,7 +298,7 @@ Dialog {
 
                     radius: 6
 
-                    color: settingsDialog.currentSettingIndex === index
+                    color: settingsWindow.currentSettingIndex === index
                            ? "#E8F3FF"
                            : categoryHover.hovered
                              ? "#EAEAEA"
@@ -285,7 +344,7 @@ Dialog {
                         gesturePolicy: TapHandler.ReleaseWithinBounds
 
                         onTapped: {
-                            settingsDialog.currentSettingIndex = index
+                            settingsWindow.currentSettingIndex = index
                         }
                     }
                 }
@@ -297,7 +356,7 @@ Dialog {
             Layout.fillWidth: true
             Layout.fillHeight: true
 
-            currentIndex: settingsDialog.currentSettingIndex
+            currentIndex: settingsWindow.currentSettingIndex
 
             //文件设置页
             Item {
@@ -361,7 +420,7 @@ Dialog {
                                 Text {
                                     Layout.fillWidth: true
 
-                                    text: settingsDialog.appController.defaultDownloadPath
+                                    text: settingsWindow.appController.defaultDownloadPath
 
                                     color: "#777777"
                                     font.pixelSize: 12
@@ -375,8 +434,8 @@ Dialog {
 
                                 onClicked: {
                                     defaultDownloadFolderDialog.currentFolder =
-                                        settingsDialog.appController.localFileUrl(
-                                            settingsDialog.appController.defaultDownloadPath
+                                        settingsWindow.appController.localFileUrl(
+                                            settingsWindow.appController.defaultDownloadPath
                                         )
 
                                     defaultDownloadFolderDialog.open()
@@ -414,7 +473,7 @@ Dialog {
                             Text {
                                 Layout.fillWidth: true
 
-                                text: settingsDialog.appController.cachePath
+                                text: settingsWindow.appController.cachePath
 
                                 color: "#777777"
                                 font.pixelSize: 12
@@ -521,6 +580,10 @@ Dialog {
                                 color: "#666666"
                                 onLinkActivated: function(link) {
                                     Qt.openUrlExternally(link)
+                                }
+
+                                HoverHandler {
+                                    cursorShape: Qt.PointingHandCursor
                                 }
                             }
 
@@ -660,7 +723,8 @@ Dialog {
 
                                                 }
 
-                                            }
+                                            }                         
+                                             cursorShape: Qt.PointingHandCursor
                                         }
                                     }
                                 }
@@ -794,10 +858,10 @@ Dialog {
                 return
 
             const point = currentDeveloperItem.mapToItem(
-                            Overlay.overlay,
+                            developerCard.parent,
                             currentDeveloperItem.width + 12,
                             -20
-                            )
+            )
 
             developerCard.x = point.x
             developerCard.y = point.y
@@ -947,7 +1011,7 @@ Dialog {
         acceptLabel: qsTr("选择")
 
         onAccepted: {
-            settingsDialog.appController.setDefaultDownloadPath(
+            settingsWindow.appController.setDefaultDownloadPath(
                 selectedFolder
             )
         }
