@@ -53,8 +53,10 @@
 //         * 文件保存逻辑修改：文件默认保存路径已改为项目根目录/data
 //         * 完善了文件传输机制: 增加发送、接收文件任务与数据库消息ID的映射 (如果没有，会产生bug: 文件和单独的消息没有联系，以前的文件会受到最新发送的文件的影响)
 //     [v0.2.9]  JiangFan     2026-08-14
-//         * 更改文件保存路径的相关逻辑，现已支持自定义普通文件默认路径（图片文件仍然默认保存data/cache）
-
+//         * 更改文件保存路径的相关逻辑，现已支持自定义普通文件默认路径（图片文件仍然默认保存  data/cache）
+//     [v0.2.10] JiangFan     2026-08-30
+//         * 更改文件默认保存路径为root/download,但图片文件缓存仍是data/cache
+//         * 增加已接收的文件点击调用系统打开的功能
 #include "appcontroller.h"
 
 #include <QVariantMap>
@@ -92,6 +94,13 @@ namespace
             );
     }
 
+    //返回用户主目录下的默认下载目录
+    QString defaultDownloadDirectory()
+    {
+        return QDir(QDir::homePath()).filePath(
+            QStringLiteral("download")
+            );
+    }
 }
 
 
@@ -103,8 +112,8 @@ AppController::AppController(QObject *parent)
     m_chat(this),
     m_groupChat(&m_chat, this)
 {
-    //读取普通文件默认保存路径(data/download)
-    const QString defaultPath = projectDataDirectory(QStringLiteral("download"));
+    //读取普通文件默认保存路径(root/download)
+    const QString defaultPath = defaultDownloadDirectory();
 
     QSettings settings;
 
@@ -322,8 +331,7 @@ bool AppController::ensureDefaultDownloadPath()
     }
 
     //当前路径已经失效，恢复程序默认下载目录
-    const QString defaultPath = projectDataDirectory(QStringLiteral("download"));
-
+    const QString defaultPath = defaultDownloadDirectory();
     m_defaultDownloadPath = defaultPath;
 
     //自定义路径已经失效 --> 移除原有设置
@@ -404,6 +412,40 @@ bool AppController::setDefaultDownloadPath(
         );
 
     emit defaultDownloadPathChanged();
+
+    return true;
+}
+
+bool AppController::resetDefaultDownloadPath()
+{
+    const QString defaultPath = defaultDownloadDirectory();
+
+    //默认目录不存在时创建
+    if (!QDir().mkpath(defaultPath)) {
+        reportError(QStringLiteral("恢复默认文件保存路径失败：无法创建默认目录"));
+        return false;
+    }
+
+    //已经是默认路径时，只清除可能残留的自定义配置
+    if (m_defaultDownloadPath == defaultPath) {
+        QSettings settings;
+        settings.remove(QStringLiteral("file/defaultDownloadPath"));
+
+        return true;
+    }
+
+    m_defaultDownloadPath = defaultPath;
+
+    //删除用户之前保存的自定义路径
+    QSettings settings;
+
+    settings.remove(QStringLiteral("file/defaultDownloadPath"));
+
+    //通知QML刷新路径显示
+    emit defaultDownloadPathChanged();
+
+    qInfo() << "文件保存路径已恢复默认值:"
+            << m_defaultDownloadPath;
 
     return true;
 }
@@ -1146,6 +1188,11 @@ QString AppController::localIp()
     return m_chat.localIp();
 }
 
+QString AppController::localId()
+{
+    return m_chat.localId();
+}
+
 //校验聊天对象和消息内容，通过网络层发送消息，并将本机发送记录保存到数据库
 void AppController::sendMessage(const QString &peerId,
                                 const QString &username,
@@ -1421,7 +1468,10 @@ void AppController::openLocalFile(const QString &url)
 
     const QUrl inputUrl(text);
 
-    const QString localPath = inputUrl.isLocalFile() ? inputUrl.toLocalFile() : text;
+    const QString localPath =
+        inputUrl.isLocalFile()
+            ? inputUrl.toLocalFile()
+            : text;
 
     const QFileInfo fileInfo(localPath);
 
@@ -1435,14 +1485,11 @@ void AppController::openLocalFile(const QString &url)
         return;
     }
 
-    const bool started = QProcess::startDetached(
-        QStringLiteral("gwenview"),
-        QStringList() << fileInfo.absoluteFilePath()
-        );
+    //调用系统默认程序打开文件
+    if (!QDesktopServices::openUrl(
+            QUrl::fromLocalFile(fileInfo.absoluteFilePath()))) {
 
-    if (!started) {
-        reportError(QStringLiteral("打开文件失败：无法启动图片查看器！"));
-        return;
+        reportError(QStringLiteral("打开文件失败：无法调用系统默认程序！"));
     }
 }
 

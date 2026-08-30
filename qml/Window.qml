@@ -790,6 +790,7 @@ ApplicationWindow {
 
                             onTapped: {
                                 root.close()
+                                settingsWindow.close() //防止出现主界面关闭，但设置界面仍然存在的bug
                             }
                         }
                     }

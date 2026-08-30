@@ -27,6 +27,8 @@
 * * 增加了顶部栏双击最大最小化的功能
 * * 将该窗口改成独立窗口，不作为Window的子窗口，完善最小最大化、关闭功能
 * * 增加开发者、项目地址处鼠标悬浮时的鼠标手型变化
+* [v0.2.5] jiangFan    2026-08-30
+* *  增加文件默认保存路径的重置按钮
 */
 
 import QtQuick
@@ -427,6 +429,14 @@ Window {
                                     font.pixelSize: 12
 
                                     elide: Text.ElideMiddle
+                                }
+                            }
+
+                            Button {
+                                text: qsTr("重置")
+
+                                onClicked: {
+                                    defaultDownloadFolderDialog.currentFolder = settingsWindow.appController.resetDefaultDownloadPath()
                                 }
                             }
 

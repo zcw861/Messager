@@ -109,7 +109,11 @@ public:
 
     Q_INVOKABLE QString localIp(); //获取自己IP
 
+    Q_INVOKABLE QString localId(); //获取自己peerId
+
     Q_INVOKABLE bool setDefaultDownloadPath(const QUrl &folderUrl); //修改普通文件默认保存目录，并持久化到QSettings。
+
+    Q_INVOKABLE bool resetDefaultDownloadPath();    //恢复普通文件默认保存目录
 
     Q_INVOKABLE QUrl localFileUrl(const QString &pathOrUrl); //把本地文件路径转换为 QML Image.source 可用的 file URL
 
