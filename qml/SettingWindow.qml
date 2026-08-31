@@ -584,7 +584,7 @@ Window {
 
                                 text:qsTr(
                                     "项目地址：<a href='https://github.com/zcw861/
-                                    Messeager'>https://github.com/zcw861/Messager</a>"
+                                    Messager'>https://github.com/zcw861/Messager</a>"
                                     )
 
                                 font.pixelSize: 15
