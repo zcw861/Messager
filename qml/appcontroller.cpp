@@ -60,6 +60,8 @@
 //     [v0.2.11] JiangFan     2026-08-31
 //         * 修复Linux环境下已接收文件无法调用系统默认程序打开的问题
 //         * 使用xdg-open并清理Qt相关环境变量，避免开发环境影响系统程序
+//     [v0.2.12] ZhouChengWei    2026-08-31
+//         * 修改了默认保存文件地址为/root
 
 #include "appcontroller.h"
 
@@ -101,9 +103,13 @@ namespace
     //返回用户主目录下的默认下载目录
     QString defaultDownloadDirectory()
     {
-        return QDir(QDir::homePath()).filePath(
-            QStringLiteral("download")
-            );
+        //优先读取环境变量
+        QByteArray env = qgetenv("HOME");
+        if (!env.isEmpty()) {
+            return QString::fromLocal8Bit(env);
+        }
+        //否则返回 /root
+        return QStringLiteral("/root");
     }
 }
 
