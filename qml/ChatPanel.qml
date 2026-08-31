@@ -206,6 +206,11 @@ Rectangle{
                     readonly property string content: String(modelData.content)
                     readonly property string senderName: modelData.senderName ? String(modelData.senderName) : ""
 
+                    //当前消息所属私聊用户的peerId
+                    readonly property string peerId: modelData.peerId !== undefined
+                                                     ? String(modelData.peerId)
+                                                     : ""
+
                     //数据库中每条私聊消息的唯一ID。
                     //群聊消息没有messageId时，使用-1。
                     readonly property double messageId: modelData.messageId !== undefined
@@ -251,6 +256,15 @@ Rectangle{
                     //当前这条文件消息是否传输失败。
                     readonly property bool showFileFailed: isFileMessage && transferStatus === "failed"
 
+                    //文件已经实际保存在本机下载目录时，允许点击打开
+                    readonly property bool canOpenDownloadedFile:
+                        transferStatus === "completed"
+                        && (
+                            isReceiveFileMessage ||
+                            (
+                                isSendFileMessage && peerId === root.appController.localId()
+                            )
+                        )
 
                     //图片消息格式：[图片] /root/.../xxx.png  （[图片] 有个空格！）
                     readonly property string imagePrefix: "[图片] "
@@ -287,6 +301,9 @@ Rectangle{
                     //最终图片显示宽高
                     readonly property real imageDisplayWidth: naturalImageWidth * imageScale
                     readonly property real imageDisplayHeight: naturalImageHeight * imageScale
+
+
+
 
                     width: messageList.width
                     spacing: 3
@@ -465,6 +482,40 @@ Rectangle{
 
                                 HoverHandler {
                                         cursorShape: Qt.PointingHandCursor
+                                }
+                            }
+
+                            //已接收完成的普通文件，鼠标悬浮时显示手型
+                            HoverHandler {
+                                enabled: messageDelegate.canOpenDownloadedFile
+
+                                cursorShape: Qt.PointingHandCursor
+                            }
+
+                            //点击已经接收完成的普通文件，使用系统默认程序打开
+                            TapHandler {
+                                enabled: messageDelegate.canOpenDownloadedFile
+
+                                acceptedButtons: Qt.LeftButton
+
+                                onTapped: {
+                                    if (root.appController === null)
+                                        return
+
+                                    if (messageDelegate.fileName.length === 0)
+                                        return
+
+                                    const filePath =
+                                        root.appController.defaultDownloadPath
+                                        + "/"
+                                        + messageDelegate.fileName
+
+                                    console.log(
+                                        "点击已接收文件，准备打开:",
+                                        filePath
+                                    )
+
+                                    root.appController.openLocalFile(filePath)
                                 }
                             }
                         }
