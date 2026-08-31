@@ -583,8 +583,7 @@ Window {
                                 textFormat: Text.RichText
 
                                 text:qsTr(
-                                    "项目地址：<a href='https://github.com/zcw861/
-                                    Messager'>https://github.com/zcw861/Messager</a>"
+                                    "项目地址：<a href='https://github.com/zcw861/Messager'>https://github.com/zcw861/Messager</a>"
                                     )
 
                                 font.pixelSize: 15

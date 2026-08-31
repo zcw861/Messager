@@ -14,6 +14,8 @@
 
 int main(int argc, char *argv[])
 {
+    qputenv("QT_QPA_PLATFORMTHEME", "xdgdesktopportal");
+
     signal(SIGPIPE,SIG_IGN);    //防止传文件时对面中途退出导致本机因为信号闪退
 
     QGuiApplication app(argc, argv);
