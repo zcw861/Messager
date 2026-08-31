@@ -57,6 +57,10 @@
 //     [v0.2.10] JiangFan     2026-08-30
 //         * 更改文件默认保存路径为root/download,但图片文件缓存仍是data/cache
 //         * 增加已接收的文件点击调用系统打开的功能
+//     [v0.2.11] JiangFan     2026-08-31
+//         * 修复Linux环境下已接收文件无法调用系统默认程序打开的问题
+//         * 使用xdg-open并清理Qt相关环境变量，避免开发环境影响系统程序
+
 #include "appcontroller.h"
 
 #include <QVariantMap>
@@ -70,12 +74,12 @@
 #include <QDir>
 #include <QCoreApplication>
 #include <QDate>
-#include <QDesktopServices>
 #include <QUrl>
 #include <QDateTime>
 #include <QStandardPaths>
 #include <QImageReader>
 #include <QProcess>
+#include <QProcessEnvironment>
 
 //使用匿名命名空间，不增加多余qml接口
 //用来返回项目根目录下指定的目录
@@ -1485,11 +1489,26 @@ void AppController::openLocalFile(const QString &url)
         return;
     }
 
-    //调用系统默认程序打开文件
-    if (!QDesktopServices::openUrl(
-            QUrl::fromLocalFile(fileInfo.absoluteFilePath()))) {
+    QProcess process;
 
+    //使用系统环境启动xdg-open，避免开发Qt环境影响系统程序
+    QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+
+    environment.remove(QStringLiteral("LD_LIBRARY_PATH"));
+    environment.remove(QStringLiteral("QT_PLUGIN_PATH"));
+    environment.remove(QStringLiteral("QT_QPA_PLATFORM_PLUGIN_PATH"));
+
+    process.setProcessEnvironment(environment);
+
+    process.setProgram(QStringLiteral("/usr/bin/xdg-open"));
+
+    process.setArguments(
+        QStringList() << fileInfo.absoluteFilePath()
+        );
+
+    if (!process.startDetached()) {
         reportError(QStringLiteral("打开文件失败：无法调用系统默认程序！"));
+        return;
     }
 }
 
