@@ -436,7 +436,6 @@ Rectangle{
                                 }
                             }
 
-
                             Image {
                                 id: messageImage
 
