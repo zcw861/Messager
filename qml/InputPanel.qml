@@ -18,6 +18,8 @@
 //           统一空消息检查、发送请求和发送后清空输入框的处理流程
 //     [v0.1.7] ZhouChengWei    2026-06-26
 //         * 不是群聊界面取消了文件按钮
+//     [v0.1.8] JiangFan        2026-8-31
+//         * 修复文件选择失败后重复发送上一次文件的问题
 
 import QtQuick
 import QtQuick.Controls
@@ -70,17 +72,26 @@ Item {
         id: fileDialog
 
         title: qsTr("请选择要发送的文件")
-        fileMode:  FileDialog.OpenFile
-        nameFilters: [qsTr("所有文件(*)")]
+        fileMode: FileDialog.OpenFile
+        nameFilters: [qsTr("所有文件 (*)")]
 
-        onAccepted:  {
-            if (selectedFile.toString().length === 0)
+        onAccepted: {
+            const file = selectedFile
+
+            if (file.toString().length === 0)
                 return
 
-            console.log("inputPanel 已选择文件:", selectedFile)
+            console.log("inputPanel 已选择文件:", file)
 
-            //把文件发送请求交给Window.qml
-            root.fileSendRequested(selectedFile)
+            root.fileSendRequested(file)
+
+            //发送后清除本次选择
+            selectedFile = ""
+        }
+
+        onRejected: {
+            //取消选择时清除旧文件
+            selectedFile = ""
         }
     }
 
@@ -152,6 +163,7 @@ Item {
                         gesturePolicy: TapHandler.ReleaseWithinBounds
 
                         onTapped: {
+                            fileDialog.selectedFile = ""
                             fileDialog.open()
                         }
                     }

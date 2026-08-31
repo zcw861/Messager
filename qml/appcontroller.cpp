@@ -60,6 +60,7 @@
 //     [v0.2.11] JiangFan     2026-08-31
 //         * 修复Linux环境下已接收文件无法调用系统默认程序打开的问题
 //         * 使用xdg-open并清理Qt相关环境变量，避免开发环境影响系统程序
+//         * 修复本机发送同路径文件失败的问题
 
 #include "appcontroller.h"
 
@@ -98,12 +99,10 @@ namespace
             );
     }
 
-    //返回用户主目录下的默认下载目录
+    //返回用户主目录下的默认下载目录(root)
     QString defaultDownloadDirectory()
     {
-        return QDir(QDir::homePath()).filePath(
-            QStringLiteral("download")
-            );
+        return QDir::homePath();
     }
 }
 
@@ -1393,22 +1392,31 @@ qint64 AppController::sendFile(const QString &peerId,
 
             QDir downloadDir(m_defaultDownloadPath);
 
-            const QString targetPath = downloadDir.filePath(fileInfo.fileName());
+            const QString targetPath =
+                downloadDir.filePath(fileInfo.fileName());
 
-            if (QFile::exists(targetPath)) {
-                QFile::remove(targetPath);
-            }
+            //源文件已经在默认保存目录时，不需要再次复制
+            if (QFileInfo(localFilePath).absoluteFilePath()
+                != QFileInfo(targetPath).absoluteFilePath()) {
 
-            if (!QFile::copy(localFilePath, targetPath)) {
-                //文件消息已经写入数据库，因此复制失败时必须持久化failed状态
-                if (!m_privateChatDatabase.updateTransferStatus(messageId, QStringLiteral("failed"))) {
-                    qWarning() << "更新本机文件失败状态失败:" << m_privateChatDatabase.lastError();
+                if (QFile::exists(targetPath))
+                    QFile::remove(targetPath);
+
+                if (!QFile::copy(localFilePath, targetPath)) {
+                    //文件消息已经写入数据库，因此复制失败时必须持久化failed状态
+                    if (!m_privateChatDatabase.updateTransferStatus(messageId, QStringLiteral("failed"))) {
+                        qWarning()
+                        << "更新本机文件失败状态失败:"
+                        << m_privateChatDatabase.lastError();
+                    }
+
+                    if (m_currentPeerId == normalizedPeerId)
+                        refreshMessages();
+
+                    reportError(QStringLiteral("保存本机文件失败：复制文件到默认目录失败"));
+
+                    return -1;
                 }
-
-                if (m_currentPeerId == normalizedPeerId) { refreshMessages(); }
-
-                reportError(QStringLiteral("保存本机文件失败：复制文件到下载目录失败"));
-                return -1;
             }
         }
 
