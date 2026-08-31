@@ -51,7 +51,7 @@ Rectangle{
     //Window.qml传入
     property string currentPeerId: ""
     property string currentPeerName: "请选择用户"
-    property var messageModel: null //MessageWindow.qml 传入的消息模型
+    property var messageModel: null
     property bool isGroupChat: false
     property var appController: null
 
@@ -214,7 +214,8 @@ Rectangle{
 
                     //数据库持久化的文件传输状态。
                     //普通消息和图片消息默认为none。
-                    readonly property string transferStatus: modelData.transferStatus !== undefined
+                    readonly property string transferStatus: modelData.transferStatus !==
+                                                             undefined
                                                              ? String(modelData.transferStatus)
                                                              : "none"
 
@@ -363,11 +364,8 @@ Rectangle{
                                 y: 9
 
                                 text: messageDelegate.content
-
                                 font.pixelSize: 14
-
                                 color: messageDelegate.fromMe ? "#FFFFFF" : "#222222"
-
                                 wrapMode: Text.Wrap
                             }
 
@@ -493,7 +491,6 @@ Rectangle{
                             Layout.fillWidth: true
                         }
                     }
-
                 }
 
                 //提供右侧垂直滚动条，用来显示当前滚动位置
