@@ -72,6 +72,12 @@
 //     [v0.3.5] JiangFan    2026-07-14
 //         * 增加文件传输进度条显示速度和预计剩余时间的内容
 //         * 重构文件接受弹窗的整体布局
+//     [v0.3.6] JiangFan    2026-08-18
+//         * 解决了设置图标不显示的问题
+//     [v0.3.7] JiangFan    2026-08-24
+//         * 增加了顶部栏双击最大最小化的功能
+//         * 将设置界面由Dialog改成Window
+//         * 增加了错误提示：对于无法发送的文件（回收站文件之类）有提示
 
 import QtQuick
 import QtQuick.Controls
@@ -123,6 +129,9 @@ ApplicationWindow {
     //当前会话标题，私聊显示用户名，群聊显示群名
     readonly property string currentConversationName: currentIsGroup ? currentGroupName : currentPeerName
 
+    //普通文件默认保存路径
+    readonly property string defaultDownloadPath: appController.defaultDownloadPath
+
     //当前待处理的文件接收请求
     property string pendingFileIp: ""
     property string pendingFileName: ""
@@ -136,6 +145,9 @@ ApplicationWindow {
     property real fileTransferSpeedKBps: 0  //当前文件传输速度，单位KB/s
     property int fileTransferRemainingSeconds: -1  //预计剩余时间，单位秒
     property double fileTransferMessageId: -1     //当前正在显示进度条的文件消息ID
+
+    //当前业务错误提示
+    property string errorMessage: ""
 
     //C++应用控制器：负责数据库、用户发现和消息收发，QML只处理界面状态
     AppController {
@@ -243,8 +255,23 @@ ApplicationWindow {
         onOperationFailed: function(message)
         {
             console.log("操作失败: ", message)
+
             root.fileTransferStatusText = message
+            root.errorMessage = message
+
+            errorPopup.open()
+            errorPopupTimer.restart()
         }
+    }
+
+    //设置窗口
+    SettingWindow {
+        id: settingsWindow
+
+        appController: appController
+
+        //设置窗口作为独立顶层窗口，不与主窗口联动最小化
+        transientParent: null
     }
 
     //判断文件大小，用于转换B/KB/MB/GB
@@ -662,6 +689,15 @@ ApplicationWindow {
                                     root.startSystemMove()
                             }
                         }
+
+                        //双击标题栏空白区域，最大化/还原窗口
+                        TapHandler {
+                            acceptedButtons: Qt.LeftButton
+
+                            onDoubleTapped: {
+                                root.toggleMaxinized()
+                            }
+                        }
                     }
 
                     //功能栏（最小化，最大化，关闭）
@@ -763,6 +799,7 @@ ApplicationWindow {
 
                             onTapped: {
                                 root.close()
+                                settingsWindow.close() //防止出现主界面关闭，但设置界面仍然存在的bug
                             }
                         }
                     }
@@ -790,6 +827,28 @@ ApplicationWindow {
                     groupCandidateModel: appController.groupCandidates
                     groupModel: appController.groups
                     peerModel: appController.peers
+
+                    //打开普通文件默认保存路径选择窗口
+                    //打开设置窗口
+                    onSettingRequested: {
+
+                        //每次打开默认停留在第一项
+                        settingsWindow.currentSettingIndex = 0
+
+                        //设置窗口显示在主窗口中央
+                        settingsWindow.x = root.x
+                                    + Math.round(
+                                    (root.width - settingsWindow.width) / 2
+                                )
+
+                        settingsWindow.y = root.y
+                                    + Math.round(
+                                    (root.height - settingsWindow.height) / 2
+                                )
+
+                        settingsWindow.show()
+                        settingsWindow.requestActivate()
+                    }
 
                     //接收创建群聊窗口提交的群名称和成员列表
                     onGroupCreationRequested: function(groupName, members)
@@ -1064,6 +1123,13 @@ ApplicationWindow {
                                 //由Window检查当前是否为私聊，再将文件发送请求交给C++。
                                 root.trySendFile(fileUrl)
                             }
+
+                            onFileSelectFailed: function(message) {
+                                root.errorMessage = message
+
+                                errorPopup.open()
+                                errorPopupTimer.restart()
+                            }
                         }
                         //退出群聊后用只读提示替代输入框，避免用户误以为仍然可以发送消息
                         Rectangle {
@@ -1112,61 +1178,19 @@ ApplicationWindow {
         }
     }
 
-    /*
-    //遗留产物：接收文件时选择保存路径
-    FileDialog {
-        id: saveFileDialog
+    //设置普通文件默认保存路径的窗口
+    FolderDialog {
+        id: defaultDownloadFolderDialog
 
-        title: qsTr("选择文件保存位置")
-        fileMode: FileDialog.SaveFile
-
-        //默认打开 /root 目录，并预填收到的文件名。
-        //SaveFile需要“完整文件路径”
-        currentFolder: "file:///root"
-
-        nameFilters: [qsTr("所有文件 (*)")]
-        acceptLabel: qsTr("保存")
+        title: qsTr("选择默认文件保存位置")
+        acceptLabel: qsTr("选择")
 
         onAccepted: {
-            var saveUrl = selectedFile
+               appController.setDefaultDownloadPath(selectedFolder)
+           }
 
-            if (saveUrl.toString().length === 0) {
-                console.log("保存路径为空")
-                root.fileTransferStatusText = qsTr("保存路径为空")
-                return
-            }
 
-            if (saveUrl.toString().endsWith("/")) {
-                console.log("请选择具体文件名，不能只选择文件夹")
-                root.fileTransferStatusText = qsTr("请选择具体文件名，不能只选择文件夹")
-                return
-            }
-
-            root.fileTransferName = root.pendingFileName
-            root.fileTransferFromMe = false
-            root.fileTransferPercent = 0
-            root.fileTransferVisible = true
-
-            root.fileTransferSpeedKBps = 0
-            root.fileTransferRemainingSeconds = -1
-
-            //重新接收同名文件时，清除旧失败标识。
-            if (root.fileTransferFailedName === root.pendingFileName
-                    && root.fileTransferFailedFromMe === false) {
-                root.fileTransferFailed = false
-                root.fileTransferFailedName = ""
-            }
-
-            appController.acceptFile(root.pendingFileIp, saveUrl)
-
-            receiveFilePanel.visible = false
-            root.fileTransferStatusText = qsTr("对方已接受文件，等待传输")
-
-            console.log("接受文件:", root.pendingFileName, "保存到:", saveUrl)
-        }
     }
-
-    */
 
     //文件接受提示面板
     Rectangle {
@@ -1815,6 +1839,64 @@ ApplicationWindow {
             //清除Window.qml保存的当前群聊ID、群名称和群聊状态
             root.closeGroupChat()
             groupDetailDrawer.close()
+        }
+    }
+
+    //业务错误提示
+    Popup {
+        id: errorPopup
+
+        parent: Overlay.overlay
+
+        x: (parent.width - width) / 2
+        y: (parent.height - height) / 2
+
+        width: Math.min(errorText.implicitWidth + 40,420)
+
+        height: errorText.implicitHeight + 20
+
+        padding: 0
+
+        modal: false
+        focus: false
+
+        closePolicy: Popup.NoAutoClose
+
+        background: Rectangle {
+            color: "#FFFFFF"
+
+            radius: 10
+
+            border.color: "#E13B3B"
+            border.width: 1
+        }
+
+        contentItem: Text {
+            id: errorText
+
+            anchors.fill: parent
+            anchors.margins: 12
+
+            text: root.errorMessage
+
+            color: "#E13B3B"
+            font.pixelSize: 15
+
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+
+            wrapMode: Text.Wrap
+        }
+    }
+
+    Timer {
+        id: errorPopupTimer
+
+        interval: 3000
+        repeat: false
+
+        onTriggered: {
+            errorPopup.close()
         }
     }
 }

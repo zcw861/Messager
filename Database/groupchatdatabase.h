@@ -11,6 +11,9 @@
 //         * 新增：群聊活动状态查询和退群状态保存
 //                退出群聊后保留群成员和群消息记录
 //                分出退出群聊和彻底删除群聊两种数据库操作
+//     [v0.1.4] JiangFan     2026-08-31
+//         * 新增指定群聊历史消息清除接口
+
 #pragma once
 
 #include <QString>
@@ -64,6 +67,9 @@ public:
 
     //返回最近一次产生的错误
     QString lastError() const;
+
+    //清除指定群聊的全部聊天记录
+    bool clearChatHistory(const QString &groupId);
 
 private:
     //引用数据库连接管理对象

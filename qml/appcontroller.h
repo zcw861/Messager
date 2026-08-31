@@ -19,6 +19,10 @@
 //     [v0.1.7] HeZhiyuan    2026-07-02 00:53:08
 //         * 新增groupActivityChanged()，更新当前群聊活动状态
 //           修改群成员退出和群聊解散处理，解散后继续保留本地历史记录
+//     [v0.1.8] JiangFan     2026-08-31
+//         * 新增清除当前会话聊天记录的QML调用接口
+//         * 新增打开文件所在位置的QML调用接口
+
 #pragma once
 
 #include <QObject>
@@ -55,6 +59,12 @@ class AppController : public QObject
     //是否已经完成数据库和网络服务初始化
     Q_PROPERTY(bool ready READ ready NOTIFY readyChanged FINAL)
 
+    //普通文件默认保存目录（不包括图片文件缓存：data/cache）
+    Q_PROPERTY(QString defaultDownloadPath READ defaultDownloadPath NOTIFY defaultDownloadPathChanged FINAL)
+
+    //图片缓存目录，只读，不允许用户修改
+    Q_PROPERTY(QString cachePath READ cachePath CONSTANT)
+
     //提供给创建群聊窗口的候选成员。
     //第一项为本机用户，后续成员来自数据库peers表。
     //数据库中的在线和离线用户都会保留。
@@ -81,6 +91,8 @@ public:
     QVariantList messages() const;  //获取当前选中用户的聊天记录
     QString lastError() const;  //获取最近一次错误信息
     bool ready() const; //查询是否初始化完成
+    QString defaultDownloadPath() const; //取得普通文件当前默认保存路径
+    QString cachePath() const;
 
     //返回当前缓存的群聊列表
     QVariantList groups() const;
@@ -101,6 +113,11 @@ public:
 
     Q_INVOKABLE QString localIp(); //获取自己IP
 
+    Q_INVOKABLE QString localId(); //获取自己peerId
+
+    Q_INVOKABLE bool setDefaultDownloadPath(const QUrl &folderUrl); //修改普通文件默认保存目录，并持久化到QSettings。
+
+    Q_INVOKABLE bool resetDefaultDownloadPath();    //恢复普通文件默认保存目录
 
     Q_INVOKABLE QUrl localFileUrl(const QString &pathOrUrl); //把本地文件路径转换为 QML Image.source 可用的 file URL
 
@@ -117,6 +134,9 @@ public:
 
     //调用系统默认程序打开本地文件
     Q_INVOKABLE void openLocalFile(const QString &url);
+
+    //使用文件资源管理器打开文件所在目录
+    Q_INVOKABLE void openFileFolder(const QString &path);
 
     //接受文件请求
     //Q_INVOKABLE void acceptFile(const QString &ip, const QUrl &saveUrl);
@@ -157,6 +177,10 @@ public:
 
     //向指定群聊发送文本消息
     Q_INVOKABLE bool sendGroupMessage(const QString &groupId, const QString &content);
+
+    //清除当前打开会话的聊天记录
+    Q_INVOKABLE bool clearCurrentChatHistory();
+
 signals:
     void peersChanged();    //用户列表发生变化时发出，通知QML重新读取peers属性
     void groupCandidatesChanged();      //群聊候选成员发生变化后，通知QML重新读取groupCandidates
@@ -180,7 +204,11 @@ signals:
     void fileTransferProgress(const QString &ip,const QString &fileName, int percent, double speedKBps, int remainingSeconds);
     void fileTransferFinished(const QString &ip, const QString &fileName, bool isSuccess); //文件传输结果
 
-private:    
+    void defaultDownloadPathChanged(); //普通文件默认保存路径改变后要通知QML
+
+private:
+    bool ensureDefaultDownloadPath(); //检查普通文件默认保存路径
+
     void synchronizeOnlineUsers();  //从PrivateChat读取在线用户，并同步到数据库
 
     //处理网络层接收到的聊天消息，将发送者和消息保存到数据库
@@ -270,6 +298,8 @@ private:
 
     //自动接收图片时，记录发送方IP对应的本地保存路径
     QHash<QString, QString> m_pendingImageSavePaths;
+
+    QString m_defaultDownloadPath; //普通文件默认保存目录
 
     //生成文件传输任务的查找键。
     //当前项目按“对方IP + 文件名”查找正在进行的传输任务。

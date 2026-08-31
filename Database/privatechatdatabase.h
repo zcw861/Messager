@@ -3,6 +3,9 @@
 // Created: HeZhiyuan      2026-06-24 14:58:02
 // Description: 定义私聊消息表初始化、消息保存和历史记录读取接口
 //
+//     [v0.1.2] JiangFan     2026-08-31
+//         * 新增指定用户私聊记录清除接口
+
 #pragma once
 
 #include <QString>
@@ -29,7 +32,8 @@ public:
         bool fromMe,
         const QString &content,
         qint64 *insertedMessageId = nullptr,
-        const QString &transferStatus = QStringLiteral("none")
+        const QString &transferStatus = QStringLiteral("none"),
+        const QString &localPath = QString()
         );
 
     //根据message_id更新文件传输状态。
@@ -41,6 +45,9 @@ public:
 
     //读取指定用户的最近私聊记录
     bool loadMessages(const QString &peerId, QVariantList &messages, int limit = 5000);
+
+    //清除指定用户的全部私聊记录
+    bool clearChatHistory(const QString &peerId);
 
     QString lastError() const;
 

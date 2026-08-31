@@ -9,12 +9,40 @@
 #include <QQmlApplicationEngine>
 #include <signal.h>
 #include <QIcon>
+#include <QLocalServer>
+#include <QLocalSocket>
 
 int main(int argc, char *argv[])
 {
+    qputenv("QT_QPA_PLATFORMTHEME", "xdgdesktopportal");
+
     signal(SIGPIPE,SIG_IGN);    //防止传文件时对面中途退出导致本机因为信号闪退
 
     QGuiApplication app(argc, argv);
+
+    QString serverName = "MessagerSingleInstance";
+    QLocalServer server;
+
+    //先尝试监听
+    if(!server.listen(serverName))
+    {
+        //监听失败，可能是已有实例
+        QLocalSocket socket;
+        socket.connectToServer(serverName);
+        if(socket.waitForConnected(500))
+        {
+            //已有程序
+            return 0;
+        }
+
+        QLocalServer::removeServer(serverName);
+        //重新监听
+        if(!server.listen(serverName))
+        {
+            return -1;
+        }
+
+    }
 
     app.setWindowIcon(QIcon(":/qt/qml/se/qt/messager/source/messager.png"));
     QCoreApplication::setOrganizationName("se.qt.messager");
