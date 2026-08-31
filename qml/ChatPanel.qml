@@ -39,6 +39,9 @@
 * [v0.2.9] JiangFan  2026-07-14
 * * 增加文件传输失败，显示错误图标（气泡外面的那个红色的svg图片）
 * * 文件传输失败状态改为从数据库获取（transferStatus）
+* [v0.3.0] JiangFan     2026-08-31
+* * 增加聊天区域右键菜单，支持清除当前会话聊天记录
+* * 增加找到已接受文件的路径
 */
 
 import QtQuick
@@ -271,6 +274,20 @@ Rectangle{
                     readonly property bool isImageMessage: content.startsWith(imagePrefix)
                     readonly property string imagePath: isImageMessage ? content.substring(imagePrefix.length).trim() : ""
 
+                    //文件在本机实际保存的路径
+                    readonly property string localPath: modelData.localPath !== undefined
+                                                        ? String(modelData.localPath)
+                                                        : ""
+
+                    //本机实际存在该文件时，可以打开所在目录
+                    readonly property bool canOpenFileFolder: localPath.length > 0 && (
+                                                                  isImageMessage
+                                                                  || (
+                                                                      isFileMessage
+                                                                      && transferStatus === "completed"
+                                                                      )
+                                                                  )
+
                     //图片Url处理
                     //数据库中保存的是/root/.../xxx.png，所以这里转成 file:///root/.../xxx.png
                     readonly property url imageSource:
@@ -301,9 +318,6 @@ Rectangle{
                     //最终图片显示宽高
                     readonly property real imageDisplayWidth: naturalImageWidth * imageScale
                     readonly property real imageDisplayHeight: naturalImageHeight * imageScale
-
-
-
 
                     width: messageList.width
                     spacing: 3
@@ -343,6 +357,37 @@ Rectangle{
                             Layout.rightMargin: 6
 
                             fillMode: Image.PreserveAspectFit
+                        }
+
+                        //自己发送的文件：打开目录图标放在气泡左边
+                        Image {
+                            visible: messageDelegate.fromMe && messageDelegate.canOpenFileFolder
+
+                            source: "source/open_folder.svg"
+
+                            Layout.preferredWidth: 15
+                            Layout.preferredHeight: 15
+                            Layout.alignment: Qt.AlignVCenter
+                            Layout.rightMargin: 6
+
+                            fillMode: Image.PreserveAspectFit
+
+                            HoverHandler {
+                                cursorShape: Qt.PointingHandCursor
+                            }
+
+                            TapHandler {
+                                acceptedButtons: Qt.LeftButton
+
+                                onTapped: {
+                                    if (root.appController === null)
+                                        return
+
+                                    root.appController.openFileFolder(
+                                        messageDelegate.localPath
+                                    )
+                                }
+                            }
                         }
 
                         Rectangle {
@@ -534,6 +579,39 @@ Rectangle{
                             fillMode: Image.PreserveAspectFit
                         }
 
+                        //别人发送的文件：打开目录图标放在气泡右边
+                        Image {
+                            visible:
+                                !messageDelegate.fromMe
+                                && messageDelegate.canOpenFileFolder
+
+                            source: "source/open_folder.svg"
+
+                            Layout.preferredWidth: 15
+                            Layout.preferredHeight: 15
+                            Layout.alignment: Qt.AlignVCenter
+                            Layout.leftMargin: 6
+
+                            fillMode: Image.PreserveAspectFit
+
+                            HoverHandler {
+                                cursorShape: Qt.PointingHandCursor
+                            }
+
+                            TapHandler {
+                                acceptedButtons: Qt.LeftButton
+
+                                onTapped: {
+                                    if (root.appController === null)
+                                        return
+
+                                    root.appController.openFileFolder(
+                                        messageDelegate.localPath
+                                    )
+                                }
+                            }
+                        }
+
                         //他人发送时，将气泡保留在左侧。
                         Item {
                             visible: !messageDelegate.fromMe
@@ -553,7 +631,31 @@ Rectangle{
                 }
             }
         }
+    }
 
+    //聊天区域右键菜单
+    Menu {
+        id: chatContextMenu
+
+        MenuItem {
+            text: qsTr("清除聊天记录")
+
+            onTriggered: {
+                if (root.appController === null)
+                    return
+
+                root.appController.clearCurrentChatHistory()
+            }
+        }
+    }
+
+    //右键聊天区域打开菜单
+    TapHandler {
+        acceptedButtons: Qt.RightButton
+
+        onTapped: {
+            chatContextMenu.popup()
+        }
     }
 }
 

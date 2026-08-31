@@ -19,6 +19,10 @@
 //     [v0.1.7] HeZhiyuan    2026-07-02 00:53:08
 //         * 新增groupActivityChanged()，更新当前群聊活动状态
 //           修改群成员退出和群聊解散处理，解散后继续保留本地历史记录
+//     [v0.1.8] JiangFan     2026-08-31
+//         * 新增清除当前会话聊天记录的QML调用接口
+//         * 新增打开文件所在位置的QML调用接口
+
 #pragma once
 
 #include <QObject>
@@ -131,6 +135,9 @@ public:
     //调用系统默认程序打开本地文件
     Q_INVOKABLE void openLocalFile(const QString &url);
 
+    //使用文件资源管理器打开文件所在目录
+    Q_INVOKABLE void openFileFolder(const QString &path);
+
     //接受文件请求
     //Q_INVOKABLE void acceptFile(const QString &ip, const QUrl &saveUrl);
 
@@ -170,6 +177,10 @@ public:
 
     //向指定群聊发送文本消息
     Q_INVOKABLE bool sendGroupMessage(const QString &groupId, const QString &content);
+
+    //清除当前打开会话的聊天记录
+    Q_INVOKABLE bool clearCurrentChatHistory();
+
 signals:
     void peersChanged();    //用户列表发生变化时发出，通知QML重新读取peers属性
     void groupCandidatesChanged();      //群聊候选成员发生变化后，通知QML重新读取groupCandidates

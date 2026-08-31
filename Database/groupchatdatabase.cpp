@@ -17,6 +17,9 @@
 //           修改主动退群处理，禁止向已经退出的群聊继续保存新消息
 //     [v0.1.6] HeZhiyuan    2026-07-02 00:50:25
 //         * 修改leaveGroup()事务处理，三人群有成员退出后将群聊标记为非活动状态，不删除chat_groups记录
+//     [v0.1.7] JiangFan     2026-08-31
+//         * 实现按groupId清除指定群聊历史消息的数据库操作
+
 #include "groupchatdatabase.h"
 
 #include "databasecore.h"
@@ -1314,4 +1317,47 @@ bool GroupChatDatabase::leaveGroup(const QString &groupId,const QString &peerId)
 QString GroupChatDatabase::lastError() const
 {
     return m_lastError;
+}
+
+bool GroupChatDatabase::clearChatHistory(const QString &groupId)
+{
+    m_lastError.clear();
+
+    QSqlDatabase database = m_databaseCore.database();
+
+    if (!database.isValid() || !database.isOpen()) {
+        m_lastError = QStringLiteral("数据库未打开");
+        return false;
+    }
+
+    const QString normalizedGroupId = groupId.trimmed();
+
+    if (!DatabaseCheck::isValidGroupId(normalizedGroupId)) {
+        m_lastError = QStringLiteral("群聊ID必须是十位数字");
+        return false;
+    }
+
+    QSqlQuery query(database);
+
+    const QString sql = R"(
+        DELETE FROM group_messages
+        WHERE group_id = :group_id
+    )";
+
+    if (!query.prepare(sql)) {
+        m_lastError = query.lastError().text();
+        return false;
+    }
+
+    query.bindValue(
+        QStringLiteral(":group_id"),
+        normalizedGroupId
+        );
+
+    if (!query.exec()) {
+        m_lastError = query.lastError().text();
+        return false;
+    }
+
+    return true;
 }

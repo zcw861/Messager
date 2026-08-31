@@ -42,6 +42,7 @@ Item {
     signal sendRequested(string content)
     //输出框向外通知: 请求发送一个文件
     signal fileSendRequested(url fileUrl)
+    signal fileSelectFailed(string message)
 
     //统一处理发送逻辑：检查当前会话和输入内容
     function trySendMessage() {
@@ -78,20 +79,16 @@ Item {
         onAccepted: {
             const file = selectedFile
 
-            if (file.toString().length === 0)
+            if (file.toString().length === 0) {
+                root.fileSelectFailed(
+                    qsTr("文件选择失败，请选择有效的本地文件")
+                )
                 return
+            }
 
             console.log("inputPanel 已选择文件:", file)
 
             root.fileSendRequested(file)
-
-            //发送后清除本次选择
-            selectedFile = ""
-        }
-
-        onRejected: {
-            //取消选择时清除旧文件
-            selectedFile = ""
         }
     }
 
@@ -163,7 +160,6 @@ Item {
                         gesturePolicy: TapHandler.ReleaseWithinBounds
 
                         onTapped: {
-                            fileDialog.selectedFile = ""
                             fileDialog.open()
                         }
                     }

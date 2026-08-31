@@ -3,6 +3,9 @@
 // Created: HeZhiyuan      2026-06-24
 // Description:
 //
+//     [v0.1.2] JiangFan     2026-08-31
+//         * 实现按peerId清除指定用户私聊记录的数据库操作
+
 #include "privatechatdatabase.h"
 
 #include "databasecore.h"
@@ -45,6 +48,7 @@ bool PrivateChatDatabase::initSchema()
     //from_me表示消息方向：1：我发送的消息；0：对方发送的消息，用CHECK确定只能是0/1
     //FOREIGN KEY表示messages.peer_id必须对应peers.peer_id。
     //ON DELETE CASCADE表示如果某个peer被删除，该 peer 对应的消息也自动删除
+    //local_path记录文件消息在本机实际对应的文件路径
     const QString createMessagesSql = R"(
     CREATE TABLE IF NOT EXISTS messages(
         message_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,13 +64,15 @@ bool PrivateChatDatabase::initSchema()
                 'failed'
             )),
 
+        local_path TEXT NOT NULL DEFAULT '',
+
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
         FOREIGN KEY(peer_id)
             REFERENCES peers(peer_id)
             ON DELETE CASCADE
-        )
-    )";
+    )
+)";
 
     if (!m_databaseCore.execute(createMessagesSql, m_lastError)) {
         database.rollback();
@@ -85,15 +91,17 @@ bool PrivateChatDatabase::initSchema()
     }
 
     bool hasTransferStatusColumn = false;
+    bool hasLocalPathColumn = false;
 
     while (tableInfoQuery.next()) {
         const QString columnName =
             tableInfoQuery.value(1).toString();
 
-        if (columnName == QStringLiteral("transfer_status")) {
+        if (columnName == QStringLiteral("transfer_status"))
             hasTransferStatusColumn = true;
-            break;
-        }
+
+        if (columnName == QStringLiteral("local_path"))
+            hasLocalPathColumn = true;
     }
 
     tableInfoQuery.finish();
@@ -106,6 +114,23 @@ bool PrivateChatDatabase::initSchema()
             "ALTER TABLE messages "
             "ADD COLUMN transfer_status "
             "TEXT NOT NULL DEFAULT 'none'"
+            );
+
+        if (!alterQuery.exec(alterSql)) {
+            m_lastError = alterQuery.lastError().text();
+            database.rollback();
+            return false;
+        }
+    }
+
+    //旧数据库没有local_path字段时，执行一次迁移
+    if (!hasLocalPathColumn) {
+        QSqlQuery alterQuery(database);
+
+        const QString alterSql = QStringLiteral(
+            "ALTER TABLE messages "
+            "ADD COLUMN local_path "
+            "TEXT NOT NULL DEFAULT ''"
             );
 
         if (!alterQuery.exec(alterSql)) {
@@ -155,7 +180,7 @@ bool PrivateChatDatabase::initSchema()
 }
 
 //校验peerId和消息正文后保存私聊消息
-bool PrivateChatDatabase::saveMessage(const QString &peerId, bool fromMe, const QString &content, qint64 *insertedMessageId, const QString &transferStatus)
+bool PrivateChatDatabase::saveMessage(const QString &peerId, bool fromMe, const QString &content, qint64 *insertedMessageId, const QString &transferStatus, const QString &localPath)
 {
     m_lastError.clear();
 
@@ -177,6 +202,13 @@ bool PrivateChatDatabase::saveMessage(const QString &peerId, bool fromMe, const 
 
     const QString normalizedTransferStatus =
         transferStatus.trimmed().toLower();
+
+    QString normalizedLocalPath =
+        localPath.trimmed();
+
+    //没有本地路径的普通文本消息使用空字符串，不能向NOT NULL字段写入NULL
+    if (normalizedLocalPath.isNull())
+        normalizedLocalPath = QStringLiteral("");
 
     //只允许数据库定义的四种状态。
     if (normalizedTransferStatus != QStringLiteral("none")
@@ -205,19 +237,21 @@ bool PrivateChatDatabase::saveMessage(const QString &peerId, bool fromMe, const 
 
     //定义带命名占位符的插入SQL
     const QString sql = R"(
-        INSERT INTO messages(
-            peer_id,
-            from_me,
-            content,
-            transfer_status
-        )
-        VALUES(
-            :peer_id,
-            :from_me,
-            :content,
-            :transfer_status
-        )
-    )";
+    INSERT INTO messages(
+        peer_id,
+        from_me,
+        content,
+        transfer_status,
+        local_path
+    )
+    VALUES(
+        :peer_id,
+        :from_me,
+        :content,
+        :transfer_status,
+        :local_path
+    )
+)";
 
     //预处理插入SQL
     if (!query.prepare(sql)) {
@@ -227,6 +261,9 @@ bool PrivateChatDatabase::saveMessage(const QString &peerId, bool fromMe, const 
 
     //绑定规范化后的用户ID，避免字符串拼接并保持UUID格式统一
     query.bindValue(QStringLiteral(":peer_id"), normalizedPeerId);
+
+    query.bindValue(QStringLiteral(":local_path"),normalizedLocalPath);
+
     //把bool消息方向转换为SQLite整数0或
     query.bindValue(QStringLiteral(":from_me"), fromMe ? 1 : 0);
     //绑定已经去除首尾空白的消息正文
@@ -361,6 +398,7 @@ bool PrivateChatDatabase::loadMessages(const QString &peerId, QVariantList &mess
             from_me,
             content,
             transfer_status,
+            local_path,
             created_at
         FROM (
             SELECT
@@ -369,6 +407,7 @@ bool PrivateChatDatabase::loadMessages(const QString &peerId, QVariantList &mess
                 from_me,
                 content,
                 transfer_status,
+                local_path,
                 created_at
             FROM messages
             WHERE peer_id = :peer_id
@@ -411,7 +450,9 @@ bool PrivateChatDatabase::loadMessages(const QString &peerId, QVariantList &mess
 
         message.insert(QStringLiteral("transferStatus"), query.value(4).toString());
 
-        message.insert(QStringLiteral("createdAt"), query.value(5).toString());
+        message.insert(QStringLiteral("localPath"), query.value(5).toString());
+
+        message.insert(QStringLiteral("createdAt"), query.value(6).toString());
 
         //把当前消息追加到输出列表
         messages.append(message);
@@ -423,4 +464,47 @@ bool PrivateChatDatabase::loadMessages(const QString &peerId, QVariantList &mess
 QString PrivateChatDatabase::lastError() const
 {
     return m_lastError;
+}
+
+bool PrivateChatDatabase::clearChatHistory(const QString &peerId)
+{
+    m_lastError.clear();
+
+    QSqlDatabase database = m_databaseCore.database();
+
+    if (!database.isValid() || !database.isOpen()) {
+        m_lastError = QStringLiteral("数据库未打开");
+        return false;
+    }
+
+    const QString normalizedPeerId = DatabaseCheck::normalizePeerId(peerId);
+
+    if (normalizedPeerId.isEmpty()) {
+        m_lastError = QStringLiteral("peerId不是有效UUID");
+        return false;
+    }
+
+    QSqlQuery query(database);
+
+    const QString sql = R"(
+        DELETE FROM messages
+        WHERE peer_id = :peer_id
+    )";
+
+    if (!query.prepare(sql)) {
+        m_lastError = query.lastError().text();
+        return false;
+    }
+
+    query.bindValue(
+        QStringLiteral(":peer_id"),
+        normalizedPeerId
+        );
+
+    if (!query.exec()) {
+        m_lastError = query.lastError().text();
+        return false;
+    }
+
+    return true;
 }

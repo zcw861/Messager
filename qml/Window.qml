@@ -77,6 +77,7 @@
 //     [v0.3.7] JiangFan    2026-08-24
 //         * 增加了顶部栏双击最大最小化的功能
 //         * 将设置界面由Dialog改成Window
+//         * 增加了错误提示：对于无法发送的文件（回收站文件之类）有提示
 
 import QtQuick
 import QtQuick.Controls
@@ -144,6 +145,9 @@ ApplicationWindow {
     property real fileTransferSpeedKBps: 0  //当前文件传输速度，单位KB/s
     property int fileTransferRemainingSeconds: -1  //预计剩余时间，单位秒
     property double fileTransferMessageId: -1     //当前正在显示进度条的文件消息ID
+
+    //当前业务错误提示
+    property string errorMessage: ""
 
     //C++应用控制器：负责数据库、用户发现和消息收发，QML只处理界面状态
     AppController {
@@ -251,7 +255,12 @@ ApplicationWindow {
         onOperationFailed: function(message)
         {
             console.log("操作失败: ", message)
+
             root.fileTransferStatusText = message
+            root.errorMessage = message
+
+            errorPopup.open()
+            errorPopupTimer.restart()
         }
     }
 
@@ -1114,6 +1123,13 @@ ApplicationWindow {
                                 //由Window检查当前是否为私聊，再将文件发送请求交给C++。
                                 root.trySendFile(fileUrl)
                             }
+
+                            onFileSelectFailed: function(message) {
+                                root.errorMessage = message
+
+                                errorPopup.open()
+                                errorPopupTimer.restart()
+                            }
                         }
                         //退出群聊后用只读提示替代输入框，避免用户误以为仍然可以发送消息
                         Rectangle {
@@ -1823,6 +1839,64 @@ ApplicationWindow {
             //清除Window.qml保存的当前群聊ID、群名称和群聊状态
             root.closeGroupChat()
             groupDetailDrawer.close()
+        }
+    }
+
+    //业务错误提示
+    Popup {
+        id: errorPopup
+
+        parent: Overlay.overlay
+
+        x: (parent.width - width) / 2
+        y: (parent.height - height) / 2
+
+        width: Math.min(errorText.implicitWidth + 40,420)
+
+        height: errorText.implicitHeight + 20
+
+        padding: 0
+
+        modal: false
+        focus: false
+
+        closePolicy: Popup.NoAutoClose
+
+        background: Rectangle {
+            color: "#FFFFFF"
+
+            radius: 10
+
+            border.color: "#E13B3B"
+            border.width: 1
+        }
+
+        contentItem: Text {
+            id: errorText
+
+            anchors.fill: parent
+            anchors.margins: 12
+
+            text: root.errorMessage
+
+            color: "#E13B3B"
+            font.pixelSize: 15
+
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+
+            wrapMode: Text.Wrap
+        }
+    }
+
+    Timer {
+        id: errorPopupTimer
+
+        interval: 3000
+        repeat: false
+
+        onTriggered: {
+            errorPopup.close()
         }
     }
 }

@@ -64,6 +64,9 @@
 //         * 修改了默认保存文件地址为/root
 //     [v0.2.13] JiangFan     2026-08-31
 //         * 修复本机发送同路径文件失败的问题
+//         * 增加当前会话聊天记录清除功能，支持私聊和群聊记录定向删除
+//         * 增加文件所在位置打开功能
+
 
 #include "appcontroller.h"
 
@@ -636,6 +639,52 @@ void AppController::clearGroupConversation()
         m_groupMessages.clear();
         emit groupMessagesChanged();
     }
+}
+
+bool AppController::clearCurrentChatHistory()
+{
+    if (!m_ready) {
+        reportError(QStringLiteral("程序尚未初始化"));
+        return false;
+    }
+
+    //当前为群聊
+    if (!m_currentGroupId.isEmpty()) {
+        if (!m_groupChatDatabase.clearChatHistory(m_currentGroupId)) {
+            reportError(
+                QStringLiteral("清除群聊记录失败：")
+                + m_groupChatDatabase.lastError()
+                );
+
+            return false;
+        }
+
+        //重新读取数据库，使当前ChatPanel立即变空
+        refreshGroupMessages();
+
+        return true;
+    }
+
+    //当前为私聊
+    if (!m_currentPeerId.isEmpty()) {
+        if (!m_privateChatDatabase.clearChatHistory(m_currentPeerId)) {
+            reportError(
+                QStringLiteral("清除聊天记录失败：")
+                + m_privateChatDatabase.lastError()
+                );
+
+            return false;
+        }
+
+        //重新读取数据库，使当前ChatPanel立即变空
+        refreshMessages();
+
+        return true;
+    }
+
+    reportError(QStringLiteral("当前没有打开的聊天会话"));
+
+    return false;
 }
 
 //创建群聊，并同时建立网络和保存本地数据库记录
@@ -1290,6 +1339,7 @@ qint64 AppController::sendFile(const QString &peerId,
 
     const QString localFilePath = fileUrl.toLocalFile();
     const QFileInfo fileInfo(localFilePath);
+    QString messageLocalPath;
 
     if (!fileInfo.exists() || !fileInfo.isFile()) {
         reportError(QStringLiteral("文件发送失败：文件不存在或不是普通文件"));
@@ -1358,12 +1408,28 @@ qint64 AppController::sendFile(const QString &peerId,
             return -1;
         }
 
-        displayMessage = QStringLiteral("[图片] ") + QFileInfo(cachePath).absoluteFilePath();
+        messageLocalPath = QFileInfo(cachePath).absoluteFilePath();
+
+        displayMessage = QStringLiteral("[图片] ") + messageLocalPath;
     }
 
     else {
         //非图片文件仍然按普通文件消息显示
-        displayMessage = QStringLiteral("[发送文件] %1").arg(fileInfo.fileName());
+        displayMessage =QStringLiteral("[发送文件] %1").arg(fileInfo.fileName());
+
+        //给自己发送时，文件最终保存在默认保存目录
+        if (normalizedPeerId == m_chat.localId()) {
+            if (!ensureDefaultDownloadPath()) {
+                return -1;
+            }
+
+            QDir downloadDir(m_defaultDownloadPath);
+
+            messageLocalPath = downloadDir.filePath(fileInfo.fileName());
+        }
+        //发送给其他用户时，本机文件路径就是原文件路径
+        else
+            messageLocalPath = fileInfo.absoluteFilePath();
     }
 
     //接收数据库自动生成的message_id。
@@ -1381,7 +1447,8 @@ qint64 AppController::sendFile(const QString &peerId,
             true,
             displayMessage,
             &messageId,
-            initialTransferStatus)) {
+            initialTransferStatus,
+            messageLocalPath)) {
 
         reportError(QStringLiteral("保存文件发送记录失败：") + m_privateChatDatabase.lastError());
 
@@ -1394,10 +1461,6 @@ qint64 AppController::sendFile(const QString &peerId,
 
     if (normalizedPeerId == m_chat.localId()) {
         if (!isImageFile) {
-            //保存普通文件前重新检查默认保存路径。
-            if (!ensureDefaultDownloadPath()) {
-                return -1;
-            }
 
             QDir downloadDir(m_defaultDownloadPath);
 
@@ -1527,6 +1590,50 @@ void AppController::openLocalFile(const QString &url)
         reportError(QStringLiteral("打开文件失败：无法调用系统默认程序！"));
         return;
     }
+}
+
+void AppController::openFileFolder(const QString &path)
+{
+    const QString text = path.trimmed();
+
+    if (text.isEmpty()) {
+        reportError(QStringLiteral("打开文件目录失败：路径为空！"));
+        return;
+    }
+
+    const QUrl inputUrl(text);
+
+    const QString localPath = inputUrl.isLocalFile() ? inputUrl.toLocalFile() : text;
+
+    const QFileInfo fileInfo(localPath);
+
+    if (!fileInfo.exists() || !fileInfo.isFile()) {
+        reportError(QStringLiteral("打开文件目录失败：文件不存在！"));
+        return;
+    }
+
+    QProcess process;
+
+    //使用系统环境启动Dolphin，避免Qt开发环境影响系统程序
+    QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+
+    environment.remove(QStringLiteral("LD_LIBRARY_PATH"));
+    environment.remove(QStringLiteral("QT_PLUGIN_PATH"));
+    environment.remove(QStringLiteral("QT_QPA_PLATFORM_PLUGIN_PATH"));
+
+    process.setProcessEnvironment(environment);
+
+    //打开文件所在目录，并选中对应文件
+    process.setProgram(QStringLiteral("/usr/bin/dolphin"));
+
+    process.setArguments(
+        QStringList()
+        << QStringLiteral("--select")
+        << fileInfo.absoluteFilePath()
+        );
+
+    if (!process.startDetached())
+        reportError(QStringLiteral("打开文件目录失败：无法调用Dolphin！"));
 }
 
 //自动接收图片，保存到程序data目录
@@ -1667,8 +1774,19 @@ void AppController::handleFileTransferFinished(const QString &ip, const QString 
     const QString imageMessage =
         QStringLiteral("[图片] ") + fileInfo.absoluteFilePath();
 
-    if (!m_privateChatDatabase.saveMessage(peerId, false, imageMessage)) {
-        reportError(QStringLiteral("保存接收图片消息失败：") + m_privateChatDatabase.lastError());
+    if (!m_privateChatDatabase.saveMessage(
+            peerId,
+            false,
+            imageMessage,
+            nullptr,
+            QStringLiteral("none"),
+            fileInfo.absoluteFilePath())) {
+
+        reportError(
+            QStringLiteral("保存接收图片消息失败：")
+            + m_privateChatDatabase.lastError()
+            );
+
         return;
     }
 
@@ -1735,7 +1853,14 @@ qint64 AppController::acceptFileToDownload(const QString &ip, const QString &fil
     //接收方聊天框后续通过这个ID显示进度条。
     qint64 messageId = -1;
 
-    if (!m_privateChatDatabase.saveMessage(peerId, false, displayMessage, &messageId, QStringLiteral("transferring"))) {
+    if (!m_privateChatDatabase.saveMessage(
+            peerId,
+            false,
+            displayMessage,
+            &messageId,
+            QStringLiteral("transferring"),
+            savePath)) {
+
         reportError(QStringLiteral("保存接收文件消息失败：") + m_privateChatDatabase.lastError());
 
         return -1;
