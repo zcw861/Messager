@@ -42,6 +42,9 @@
 * [v0.3.0] JiangFan     2026-08-31
 * * 增加聊天区域右键菜单，支持清除当前会话聊天记录
 * * 增加找到已接受文件的路径
+* [v0.3.1] ZhouChengWei    2026-08-31
+* * 增加了文件消息鼠标悬停时，消息颜色变化效果
+* * 修复了右键聊天界面打开的清除聊天记录功能在鼠标进入区域后蓝色不会消失的问题
 */
 
 import QtQuick
@@ -372,10 +375,12 @@ Rectangle{
 
                             fillMode: Image.PreserveAspectFit
 
+                            opacity: iconHover.hovered ? 0.6 : 1.0
+
                             HoverHandler {
+                                id: iconHover
                                 cursorShape: Qt.PointingHandCursor
                             }
-
                             TapHandler {
                                 acceptedButtons: Qt.LeftButton
 
@@ -427,7 +432,13 @@ Rectangle{
 
                                 text: messageDelegate.content
                                 font.pixelSize: 14
-                                color: messageDelegate.fromMe ? "#FFFFFF" : "#222222"
+                                color: {
+                                    var baseColor = messageDelegate.fromMe ? "#FFFFFF" : "#222222"
+                                    if (fileHover.hovered && messageDelegate.isFileMessage) {
+                                        return Qt.darker(baseColor, 1.2)   //悬停时文字变暗
+                                    }
+                                    return baseColor
+                                }
                                 wrapMode: Text.Wrap
                             }
 
@@ -531,6 +542,7 @@ Rectangle{
 
                             //已接收完成的普通文件，鼠标悬浮时显示手型
                             HoverHandler {
+                                id: fileHover
                                 enabled: messageDelegate.canOpenDownloadedFile
 
                                 cursorShape: Qt.PointingHandCursor
@@ -636,14 +648,27 @@ Rectangle{
     //聊天区域右键菜单
     Menu {
         id: chatContextMenu
+        width: clearHistoryItem.implicitWidth
+
+        padding: 0
 
         MenuItem {
+            id: clearHistoryItem
             text: qsTr("清除聊天记录")
+
+            background: Rectangle {
+                color: clearHistoryItem.highlighted ? "#12B7F5" : "transparent"
+                radius: 4
+            }
+
+            // 确保 highlighted 跟随悬停状态
+            highlighted: clearHistoryItem.hovered
+
+            implicitWidth: contentItem.implicitWidth + leftPadding + rightPadding
 
             onTriggered: {
                 if (root.appController === null)
                     return
-
                 root.appController.clearCurrentChatHistory()
             }
         }
