@@ -62,9 +62,23 @@ chmod +x qt-unified-linux-x64-online.run
 
 ---
 
+## Windows端直接下载exe文件即可（需注意要允许防火墙）
+
 ## 安装部署指南（Manjaro/Arch Linux）
 
-### 方案一
+### 方案一（推荐）
+
+### 步骤 1：下载 messager-bin-1.2-3-x86_64.pkg.tar.zst（见Releases）
+```bash
+# 进入压缩包所在目录，打开终端（确认当前路径是压缩包所在路径）
+pacman -U messager-bin-1.2-3-x86_64.pkg.tar.zst 
+# 卸载
+sudo pacman -Rns messager-bin
+```
+### 步骤二
+打开系统菜单栏搜索messager即可看到该项目
+
+### 方案二
 
 ### 步骤 1：安装依赖库
 
@@ -114,18 +128,6 @@ sudo gtk-update-icon-cache /usr/share/icons/hicolor
 
 ### 步骤 5：终端运行
 打开终端输入messager就可以启动了
-
-### 方案二（推荐）
-
-### 步骤 1：下载 messager-bin-1.2-3-x86_64.pkg.tar.zst（见Releases）
-```bash
-# 进入压缩包所在目录，打开终端（确认当前路径是压缩包所在路径）
-pacman -U messager-bin-1.2-3-x86_64.pkg.tar.zst 
-# 卸载
-sudo pacman -Rns messager-bin
-```
-### 步骤二
-打开系统菜单栏搜索messager即可看到该项目
 
 ## 注意事项
 
